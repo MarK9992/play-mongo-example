@@ -1,19 +1,39 @@
 package controllers
 
-import play.api.libs.json.Json
+import models.{Person, male}
+import org.joda.time.{DateTime, DateTimeZone}
+import play.api.Logger
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import play.api.libs.json._
 import play.api.mvc._
+import play.modules.reactivemongo.MongoController
+import play.modules.reactivemongo.json._
+import play.modules.reactivemongo.json.collection.JSONCollection
+import reactivemongo.api.Cursor
 
 import scala.concurrent.Future
 
-object PersonController extends Controller {
+object PersonController extends Controller with MongoController {
+
+  def collection: JSONCollection = db.collection[JSONCollection]("persons")
 
   /**
-   * @return : le Json represantant la liste des personnes dans mongo
+   * Lists all persons in database.
    *
+   * @return  a JSON representation of all stored person resources in case of success (200),
+   *          an internal server error (500) otherwise
    */
   def list = Action.async {
-  //TODO
-    Future.successful(Ok(Json.obj()))
+    val cursor: Cursor[Person] = collection.find(Json.obj()).cursor[Person]()
+    val futureList: Future[List[Person]] = cursor.collect[List]()
+
+    futureList.map { persons =>
+      Ok(Json.toJson(persons))
+    }.recover {
+      case t: Throwable =>
+        Logger.error("Could not request MongoDB", t)
+        InternalServerError("Could not request database.")
+    }
   }
 
   /**
@@ -27,7 +47,14 @@ object PersonController extends Controller {
    *
    */
   def create = Action.async {
+    val person = Person("Marc", "Karassev", new DateTime(1992, 9, 9, 1, 59, DateTimeZone.UTC), male)
+    collection.insert(person).map(lastError => Ok("Mongo LastError: %s".format(lastError)))
   //TODO
+//    Future.successful(Ok(Json.obj()))
+  }
+
+  def update(id: String) = Action.async {
+    //TODO
     Future.successful(Ok(Json.obj()))
   }
 

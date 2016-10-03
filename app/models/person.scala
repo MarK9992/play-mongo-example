@@ -4,6 +4,8 @@ import org.joda.time.{DateTime, Years}
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
 
+import scala.collection.mutable
+
 sealed trait Sex
 case object male extends Sex
 case object female extends Sex
@@ -23,22 +25,33 @@ case class Person(name: String, lastName: String, birthDate: DateTime, sex: Sex,
 
 }
 
-
 object Person {
 
   implicit val addressFormat = Address.addressFormat
   implicit val addressTypeFormat = AddressType.AddressTypeFormat
+
   implicit object addressesFormat extends Format[Map[AddressType, Address]] {
 
-    override def reads(json: JsValue): JsResult[Map[AddressType, Address]] = json.asOpt[Map[AddressType, Address]] match {
-      case Some(value)  => JsSuccess(value)
-      case None         => JsError("could not parse: " + json)
-    }
+    import play.api.libs.functional.syntax._ // Combinator syntax
+
+    override def reads(json: JsValue): JsResult[Map[AddressType, Address]] = json.validate[Map[AddressType, Address]](
+      (
+        (JsPath \ personal.toString).readNullable[Address] and
+        (JsPath \ professional.toString).readNullable[Address]
+      )(
+        (personalAddress, professionalAddress) => {
+          val addresses: mutable.Map[AddressType, Address] = mutable.Map.empty
+          if (personalAddress.isDefined) addresses += (personal -> personalAddress.get)
+          if (professionalAddress.isDefined) addresses += (professional -> professionalAddress.get)
+          addresses.toMap
+        }
+      )
+    )
 
     override def writes(o: Map[AddressType, Address]): JsValue = Json.obj(
       o.map {
         case (addressType, address) =>
-          val ret: (String, JsValueWrapper) = addressTypeFormat.writes(addressType).toString -> addressFormat.writes(address)
+          val ret: (String, JsValueWrapper) = addressTypeFormat.writes(addressType).as[String] -> addressFormat.writes(address)
           ret
       }.toSeq:_*
     )
@@ -53,12 +66,12 @@ object Person {
 
 object AddressType {
 
-  implicit object AddressTypeFormat extends Format[AddressType] {
+  object AddressTypeFormat extends Format[AddressType] {
 
     override def reads(json: JsValue): JsResult[AddressType] = json match {
       case JsString("personal")      => JsSuccess(personal)
       case JsString("professional")  => JsSuccess(professional)
-    case _                           => JsError("could not parse: " + json)
+      case _                         => JsError("could not parse: " + json)
     }
 
     override def writes(o: AddressType): JsValue = JsString(o.toString)
@@ -69,7 +82,7 @@ object AddressType {
 
 object Sex {
 
-  implicit object SexFormat extends Format[Sex] {
+  object SexFormat extends Format[Sex] {
 
     override def reads(json: JsValue): JsResult[Sex] = json match {
       case JsString("male")    => JsSuccess(male)
