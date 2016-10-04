@@ -5,9 +5,6 @@ import org.junit.runner.RunWith
 import org.specs2.mutable.{BeforeAfter, Specification}
 import org.specs2.runner.JUnitRunner
 
-/**
- * @author Marc Karassev
- */
 @RunWith(classOf[JUnitRunner])
 class PersonSpec extends Specification with BeforeAfter {
 
@@ -25,9 +22,9 @@ class PersonSpec extends Specification with BeforeAfter {
 
   }
 
-  "a person born on 2004/10/02" should {
+  "a person born on 2004/10/04" should {
 
-    val person = Person("", "", new DateTime(2004, 10, 2, 15, 32, DateTimeZone.UTC), male)
+    val person = Person("", "", new DateTime(2004, 10, 4, 15, 32, DateTimeZone.UTC), male)
 
     "be 11 years old on 2016/10/01" in {
       person.age must equalTo(11)
