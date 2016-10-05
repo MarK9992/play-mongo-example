@@ -1,6 +1,6 @@
 package models
 
-import org.joda.time.{DateTime, Years}
+import org.joda.time.DateTime
 import play.api.libs.json._
 
 sealed trait Sex
@@ -13,7 +13,7 @@ case object professional extends AddressType
 
 case class Person(name: String, lastName: String, birthDate: DateTime, sex: Sex, addresses: Map[AddressType, Address] = Map.empty) {
   
-  def age: Int = Years.yearsBetween(birthDate, DateTime.now(birthDate.getZone)).getYears
+  def age: Int = Person.age(birthDate)
 
   def professionalAddress: Option[Address] = addresses get professional
 
@@ -23,10 +23,16 @@ case class Person(name: String, lastName: String, birthDate: DateTime, sex: Sex,
 
 object Person {
 
+  import org.joda.time.Years
+  import play.api.libs.json.Reads._
   import play.api.libs.functional.syntax._
 
   import scala.collection.mutable
 
+  /* Computes the time elapsed in years between a given date and now. */
+  private def age(birthDate: DateTime): Int = Years.yearsBetween(birthDate, DateTime.now(birthDate.getZone)).getYears
+
+  // Addresses map JSON Reads.
   private implicit val addressesReads: Reads[Map[AddressType, Address]] = (
     (JsPath \ personal.toString).readNullable[Address] and
     (JsPath \ professional.toString).readNullable[Address]
@@ -38,19 +44,39 @@ object Person {
     }
   )
 
+  // Addresses map JSON Writes.
   private implicit val addressesWrites = (
     (JsPath \ personal.toString).writeNullable[Address] and
     (JsPath \ professional.toString).writeNullable[Address]
   )( (map: Map[AddressType, Address]) => (map get personal, map get professional) )
 
-  implicit val personFormat = Json.format[Person]
+  // Person JSON Reads, validates age and names length.
+  implicit val personReads: Reads[Person] = (
+    (JsPath \ "name").read[String](minLength[String](3)) and
+    (JsPath \ "lastName").read[String](minLength[String](3)) and
+    (JsPath \ "birthDate").read[DateTime](verifying((birth: DateTime) => 18 until 100 contains age(birth))) and
+    (JsPath \ "sex").read[Sex] and
+    (JsPath \ "addresses").readNullable[Map[AddressType, Address]]
+  )( (name, lastName, birthDate, sex, addresses) => Person(name, lastName, birthDate, sex, addresses.getOrElse(Map.empty)))
+
+  // Person JSON Writes.
+  /* I did not understand why play/reactive-mongo forced me to define an OWrites instead of a Writes when I wasn't using
+  JSON inception with Json.format[Person]... */
+  implicit val personOWrites: OWrites[Person] = (
+    (JsPath \ "name").write[String] and
+    (JsPath \ "lastName").write[String] and
+    (JsPath \ "birthDate").write[DateTime] and
+    (JsPath \ "sex").write[Sex] and
+    (JsPath \ "addresses").write[Map[AddressType, Address]]
+  )(unlift(Person.unapply))
 
 }
 
 object AddressType {
 
-  /** Could not use JSON inception because I don't want an AddressType value to be represented as a JSON
-    * object but rather as a JSON string value. */
+  // AddressType JSON Format.
+  /* Could not use JSON inception because I don't want an AddressType value to be represented as a JSON object but
+  rather as a JSON string value. */
   implicit val addressTypeFormat: Format[AddressType] = new Format[AddressType] {
 
     override def reads(json: JsValue): JsResult[AddressType] = json match {
@@ -67,8 +93,9 @@ object AddressType {
 
 object Sex {
 
-  /** Could not use JSON inception because I don't want a Sex value to be represented as a JSON object but rather as
-    * a JSON string value. */
+  // Sex JSON Format.
+  /* Could not use JSON inception because I don't want a Sex value to be represented as a JSON object but rather as a
+  JSON string value. */
   implicit val sexFormat: Format[Sex] = new Format[Sex] {
 
     override def reads(json: JsValue): JsResult[Sex] = json match {

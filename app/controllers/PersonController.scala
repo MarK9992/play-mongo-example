@@ -1,19 +1,18 @@
 package controllers
 
-import models.{Person, male}
-import org.joda.time.{DateTime, DateTimeZone}
+import models.Person
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
 import play.api.mvc._
 import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json._
-import play.modules.reactivemongo.json.collection.JSONCollection
+import play.modules.reactivemongo.json.collection._
 import reactivemongo.api.Cursor
 
 import scala.concurrent.Future
 
-object PersonController extends Controller with MongoController {
+trait PersonController extends Controller with MongoController {
 
   def collection: JSONCollection = db.collection[JSONCollection]("persons")
 
@@ -29,28 +28,28 @@ object PersonController extends Controller with MongoController {
 
     futureList.map { persons =>
       Ok(Json.toJson(persons))
-    }.recover {
-      case t: Throwable =>
-        Logger.error("Could not request MongoDB", t)
-        InternalServerError("Could not request database.")
-    }
+    }.recover(error)
   }
 
   /**
-   * @return : le Json represantant la personne créée
+   * Creates and persists an Person from a JSON in the following properties set:
+   *  "name" (string, min 3 chars),
+   *  "lastName" (string, min 3 chars),
+   *  "birthDate" (string, yy-mm-dd, age has to be between 18 and 100),
+   *  "sex" ("male" or "female") and
+   *  "addresses" (optional, object with "personal" and "professional" properties set to object values with "street",
+   *    "town", "zipCode" string valued properties)
    *
-   * TODO implementer la creation d'une personne à partir d'un json contenant les informations (name, lastName, birthDate, sex)
-   *      cf classe Person
-   * validation :
-   *    renvoie un badRequest si nom ou prénom font moins de 3 caractères alpha
-   *    renvoie un badRequest si age n'est pas 18 <= age < 100
-   *
+   * @return  bad request status code if the given data does not match the previous format, the created person's JSON
+   *          otherwise
    */
-  def create = Action.async {
-    val person = Person("Marc", "Karassev", new DateTime(1992, 9, 9, 1, 59, DateTimeZone.UTC), male)
-    collection.insert(person).map(lastError => Ok("Mongo LastError: %s".format(lastError)))
-  //TODO
-//    Future.successful(Ok(Json.obj()))
+  def create = Action.async(parse.json[Person]) { request =>
+    val person = request.body
+
+    collection.insert(person).map { writeResult =>
+      Logger.debug(writeResult.toString)
+      Ok(Json.toJson(person))
+    }.recover(error)
   }
 
   def update(id: String) = Action.async {
@@ -74,4 +73,17 @@ object PersonController extends Controller with MongoController {
     Future.successful(Ok(Json.obj()))
   }
 
+  /**
+   * Partial function handling error cases.
+   *
+   * @return  an appropriate Result
+   */
+  def error: PartialFunction[Throwable, Result] = {
+    case t: Throwable =>
+      Logger.error("Could not request MongoDB", t)
+      InternalServerError("Could not request database.")
+  }
+
 }
+
+object PersonController extends PersonController
