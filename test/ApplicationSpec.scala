@@ -1,5 +1,5 @@
-import controllers.PersonController
-import org.joda.time.{DateTimeZone, DateTime, DateTimeUtils}
+import models.Address
+import org.joda.time.{DateTime, DateTimeUtils, DateTimeZone}
 import org.junit.runner.RunWith
 import org.specs2.mutable._
 import org.specs2.runner.JUnitRunner
@@ -69,9 +69,34 @@ class ApplicationSpec extends Specification with BeforeAfter {
 
       badCreateInputs.foreach { input =>
         val request = FakeRequest(POST, "/person").withJsonBody(Json.parse(input))
-        val result = call(PersonController.create, request)
+        val result = route(request).get
         status(result) mustEqual BAD_REQUEST
       }
+    }
+
+    "send 400 on bad address inputs" in new WithApplication() {
+      val badAddresses = Seq(
+        """
+          |{}
+        """.stripMargin, """
+          |{
+          |  "streeet": "",
+          |  "town": "",
+          |  "zipCode": ""
+          |}
+        """.stripMargin)
+
+      badAddresses.foreach { input =>
+        val request = FakeRequest(POST, "/person/foo/address/personal").withJsonBody(Json.parse(input))
+        val result = route(request).get
+        status(result) mustEqual BAD_REQUEST
+      }
+    }
+
+    "send 404 on bad address type path" in new WithApplication() {
+      val request = FakeRequest(POST, "/person/foo/address/peronal").withJsonBody(Json.toJson(Address("", "", "")))
+      val result = route(request).get
+      status(result) mustEqual NOT_FOUND
     }
 
   }

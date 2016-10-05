@@ -34,8 +34,8 @@ object Person {
 
   // Addresses map JSON Reads.
   private implicit val addressesReads: Reads[Map[AddressType, Address]] = (
-    (JsPath \ personal.toString).readNullable[Address] and
-    (JsPath \ professional.toString).readNullable[Address]
+    (JsPath \ "personal").readNullable[Address] and
+    (JsPath \ "professional").readNullable[Address]
   )( (personalAddress, professionalAddress) => {
       val addresses: mutable.Map[AddressType, Address] = mutable.Map.empty
       if (personalAddress.isDefined) addresses += (personal -> personalAddress.get)
@@ -46,8 +46,8 @@ object Person {
 
   // Addresses map JSON Writes.
   private implicit val addressesWrites = (
-    (JsPath \ personal.toString).writeNullable[Address] and
-    (JsPath \ professional.toString).writeNullable[Address]
+    (JsPath \ "personal").writeNullable[Address] and
+    (JsPath \ "professional").writeNullable[Address]
   )( (map: Map[AddressType, Address]) => (map get personal, map get professional) )
 
   // Person JSON Reads, validates age and names length.
@@ -74,15 +74,29 @@ object Person {
 
 object AddressType {
 
+  def apply(str: String): AddressType = matchString(str) match {
+    case Some(value)  =>  value
+    case None         =>  throw new IllegalArgumentException("address type " + str + "does not exist")
+  }
+
+  /* Matches a given String to an AddressType. */
+  def matchString(str: String): Option[AddressType] = str match {
+    case "personal"       =>  Some(personal)
+    case "professional"   =>  Some(professional)
+    case _                =>  None
+  }
+
   // AddressType JSON Format.
   /* Could not use JSON inception because I don't want an AddressType value to be represented as a JSON object but
   rather as a JSON string value. */
   implicit val addressTypeFormat: Format[AddressType] = new Format[AddressType] {
 
     override def reads(json: JsValue): JsResult[AddressType] = json match {
-      case JsString("personal")      => JsSuccess(personal)
-      case JsString("professional")  => JsSuccess(professional)
-      case _                         => JsError("could not parse: " + json)
+      case JsString(str)  =>  AddressType.matchString(str) match {
+        case Some(value)      =>  JsSuccess(value)
+        case None             =>  JsError("could not parse as AddressType: " + str)
+      }
+      case _              =>  JsError("could not parse as String: " + json)
     }
 
     override def writes(o: AddressType): JsValue = JsString(o.toString)

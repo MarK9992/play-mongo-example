@@ -13,3 +13,8 @@ GET     /persons                    controllers.PersonController.list
 POST    /person                     controllers.PersonController.create
 PUT     /person/:id                 controllers.PersonController.update(id)
 DELETE  /person/:id                 controllers.PersonController.remove(id)
+
+# Addresses
+POST    /person/:id/address/:kind   controllers.AddressController.add(id, kind)
+PUT     /person/:id/address/:kind   controllers.AddressController.update(id, kind)
+DELETE  /person/:id/address/:kind   controllers.AddressController.remove(id, kind)
