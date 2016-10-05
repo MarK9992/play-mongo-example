@@ -5,10 +5,11 @@ import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
 import play.api.mvc._
-import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json._
 import play.modules.reactivemongo.json.collection._
+import play.modules.reactivemongo.MongoController
 import reactivemongo.api.Cursor
+import reactivemongo.bson._
 
 import scala.concurrent.Future
 
@@ -48,7 +49,7 @@ trait PersonController extends Controller with MongoController {
 
     collection.insert(person).map { writeResult =>
       Logger.debug(writeResult.toString)
-      Ok(Json.toJson(person))
+      Created(Json.toJson(person))
     }.recover(error)
   }
 
@@ -58,19 +59,18 @@ trait PersonController extends Controller with MongoController {
   }
 
   /**
+   * Removes a person matching the given id from the database.
    *
-   * @param id
-   * @return : le Json represantant la personne créée
-   *
-   * TODO implementer la suppression d'une personne à partir de son id sérialisé
-   *
-   * hint : la sérialisation de l'id est la représentation string du BsonObjectId
-   * hint : renvoyer un 404 si id inexistant
-   *
+   * @param id  the person id to look for
+   * @return    not found status code if the given id doesn't match any element, no content otherwise
    */
-  def remove(id:String) = Action.async {
-  //TODO
-    Future.successful(Ok(Json.obj()))
+  def remove(id: String) = Action.async {
+    val selector = BSONDocument("_id" -> BSONObjectID(id))
+
+    collection.remove(selector, firstMatchOnly = true).map { writeResult =>
+      Logger.debug(writeResult.toString)
+      if (writeResult.n == 1) NoContent else NotFound(id + " not found")
+    }.recover(error)
   }
 
   /**
