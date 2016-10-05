@@ -33,7 +33,7 @@ trait PersonController extends Controller with MongoController {
   }
 
   /**
-   * Creates and persists an Person from a JSON in the following properties set:
+   * Creates and persists an Person. The request body must consist of a JSON with the following properties set:
    *  "name" (string, min 3 chars),
    *  "lastName" (string, min 3 chars),
    *  "birthDate" (string, yy-mm-dd, age has to be between 18 and 100),
@@ -53,9 +53,28 @@ trait PersonController extends Controller with MongoController {
     }.recover(error)
   }
 
-  def update(id: String) = Action.async {
-    //TODO
-    Future.successful(Ok(Json.obj()))
+  /**
+   * Updates a persisted Person matching the given id. The request body must consist of a JSON with the following
+   * properties set:
+   *  "name" (string, min 3 chars),
+   *  "lastName" (string, min 3 chars),
+   *  "birthDate" (string, yy-mm-dd, age has to be between 18 and 100),
+   *  "sex" ("male" or "female") and
+   *  "addresses" (optional, object with "personal" and "professional" properties set to object values with "street",
+   *    "town", "zipCode" string valued properties)
+   *
+   * @param id  the id to look for
+   * @return    not found status code if the given id doesn't match any element, the updated person's JSON otherwise
+   */
+  def update(id: String) = Action.async(parse.json[Person]) { request =>
+    val updatedPersonJson = Json.toJson(request.body)
+    val selector = BSONDocument("_id" -> BSONObjectID(id))
+    val modifier = BSONDocument("$set" -> updatedPersonJson)
+
+    collection.update(selector, modifier).map { writeResult =>
+      Logger.debug(writeResult.toString)
+      if (writeResult.n == 1) Ok(updatedPersonJson) else NotFound(id + " not found")
+    }.recover(error)
   }
 
   /**
