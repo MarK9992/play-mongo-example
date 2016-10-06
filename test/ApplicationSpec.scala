@@ -33,47 +33,6 @@ class ApplicationSpec extends Specification with BeforeAfter {
       contentAsString(home) must contain ("Your new application is ready.")
     }
 
-    "send 400 on bad person creation inputs" in new WithApplication() {
-      val badCreateInputs = Seq(
-        """
-          |{}
-        """.stripMargin, """
-          |{
-          |  "name": "az",
-          |  "lastName": "lastName",
-          |  "sex": "male",
-          |  "birthDate": "1990-01-01"
-          |}
-        """.stripMargin, """
-          |{
-          |  "name": "name",
-          |  "lastName": "az",
-          |  "sex": "male",
-          |  "birthDate": "1990-01-01"
-          |}
-        """.stripMargin, """
-          |{
-          |  "name": "name",
-          |  "lastName": "lastName",
-          |  "sex": "male",
-          |  "birthDate": "2000-01-01"
-          |}
-        """.stripMargin, """
-          |{
-          |  "name": "name",
-          |  "lastName": "lastName",
-          |  "sex": "male",
-          |  "birthDate": "1900-01-01"
-          |}
-        """.stripMargin)
-
-      badCreateInputs.foreach { input =>
-        val request = FakeRequest(POST, "/person").withJsonBody(Json.parse(input))
-        val result = route(request).get
-        status(result) mustEqual BAD_REQUEST
-      }
-    }
-
     "send 400 on bad address inputs" in new WithApplication() {
       val badAddresses = Seq(
         """

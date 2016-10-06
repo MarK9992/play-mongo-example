@@ -5,11 +5,11 @@ import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
 import play.api.mvc._
-import services.{MongoPersonStorage, StorageException}
+import services.{PersonStorage, MongoPersonStorage, StorageException}
 
 trait PersonController extends Controller {
 
-  private val personStorage = MongoPersonStorage()
+  protected def personStorage: PersonStorage
 
   /**
    * Lists all persons in database.
@@ -88,4 +88,8 @@ trait PersonController extends Controller {
 
 }
 
-object PersonController extends PersonController
+object PersonController extends PersonController {
+
+  override protected def personStorage: PersonStorage = MongoPersonStorage()
+
+}
