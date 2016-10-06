@@ -1,6 +1,6 @@
 package services
 
-import models.{Address, AddressType, Person}
+import models.{AddressType, Person}
 
 import scala.concurrent.Future
 
@@ -50,16 +50,6 @@ trait PersonStorage {
   def retrieve(id: String): Future[Option[Person]]
 
   /**
-   * Asynchronously replaces an address to an existing person in storage.
-   *
-   * @param id          id of the person to replace an address
-   * @param addressType address type to replace
-   * @param address     the new address
-   * @return            a future over the updated person
-   */
-  def replaceAddress(id: String, addressType: AddressType, address: Address): Future[Person]
-
-  /**
    * Asynchronously removes an address to an existing person in storage.
    *
    * @param id          id of the person to remove the address
@@ -76,4 +66,12 @@ trait PersonStorage {
  * @param message exception message
  * @param cause   exception cause
  */
-case class StorageException(message: String, cause: Throwable) extends Exception(message, cause)
+class StorageException(message: String, cause: Throwable) extends Exception(message, cause)
+
+/**
+ * Exception thrown on bad id inputs.
+ *
+ * @param id      the id responsible for the exception
+ * @param cause   exception cause
+ */
+class BadIdException(id: String, cause: Throwable) extends StorageException("bad id: " + id, cause)

@@ -1,10 +1,9 @@
 package services
 
-import models.{Person, Address, AddressType}
+import models.{Person, AddressType}
 import play.api.Logger
 import play.api.Play.current
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-//import play.api.libs.json.Json
 import play.api.libs.json._
 import play.modules.reactivemongo.json._
 import play.modules.reactivemongo.json.collection._
@@ -36,13 +35,15 @@ class MongoPersonStorage extends PersonStorage {
    * @inheritdoc
    */
   override def replace(id: String, person: Person): Future[Option[Person]] = {
-    val selector = BSONDocument("_id" -> BSONObjectID(id))
-    val modifier = BSONDocument("$set" -> Json.toJson(person))
+    try {
+      val selector = BSONDocument("_id" -> BSONObjectID(id))
+      val modifier = BSONDocument("$set" -> Json.toJson(person))
 
-    personsCollection.update(selector, modifier).map { writeResult =>
-      Logger.debug(writeResult.toString)
-      if (writeResult.n == 1) Some(person) else None
-    }.recover(throwStorageException)
+      personsCollection.update(selector, modifier).map { writeResult =>
+        Logger.debug(writeResult.toString)
+        if (writeResult.n == 1) Some(person) else None
+      }.recover(throwStorageException)
+    } catch catchBadIdException()
   }
 
   /**
@@ -59,33 +60,44 @@ class MongoPersonStorage extends PersonStorage {
    * @inheritdoc
    */
   override def remove(id: String): Future[Option[Unit]] = {
-    val selector = BSONDocument("_id" -> BSONObjectID(id))
+    try {
+      val selector = BSONDocument("_id" -> BSONObjectID(id))
 
-    personsCollection.remove(selector, firstMatchOnly = true).map { writeResult =>
-      Logger.debug(writeResult.toString)
-      if (writeResult.n == 1) Some() else None
-    }.recover(throwStorageException)
+      personsCollection.remove(selector, firstMatchOnly = true).map { writeResult =>
+        Logger.debug(writeResult.toString)
+        if (writeResult.n == 1) Some() else None
+      }.recover(throwStorageException)
+    } catch catchBadIdException()
   }
 
   /**
    * @inheritdoc
    */
   override def retrieve(id: String): Future[Option[Person]] = {
-    val selector = BSONDocument("_id" -> BSONObjectID(id))
-    val findFuture = personsCollection.find(selector).one[Person]
-
-    findFuture.recover(throwStorageException)
+    try {
+      val selector = BSONDocument("_id" -> getBSONID(id))
+      personsCollection.find(selector).one[Person].recover(throwStorageException)
+    } catch catchBadIdException()
   }
 
   /**
    * @inheritdoc
    */
-  override def replaceAddress(id: String, addressType: AddressType, address: Address): Future[Person] = ???
-
-  /**
-   * @inheritdoc
-   */
   override def removeAddress(id: String, addressType: AddressType): Future[Person] = ???
+
+  private def getBSONID(id: String): BSONObjectID = {
+    try {
+      BSONObjectID(id)
+    } catch {
+      case iae: IllegalArgumentException =>
+        throw new BadIdException(id, iae)
+    }
+  }
+
+  /* Catches a BadIdException and returns a failed Future. */
+  private def catchBadIdException[T](): PartialFunction[Throwable, Future[T]] = {
+    case bide: BadIdException => Future.failed(bide)
+  }
 
   /* Logs and encapsulates a Throwable into a StorageException. */
   private def throwStorageException[T]: PartialFunction[Throwable, T] = {

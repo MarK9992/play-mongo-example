@@ -1,15 +1,12 @@
 package controllers
 
 import models.Person
-import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
 import play.api.mvc._
-import services.{PersonStorage, MongoPersonStorage, StorageException}
+import services.{MongoPersonStorage, PersonStorage}
 
-trait PersonController extends Controller {
-
-  protected def personStorage: PersonStorage
+trait PersonController extends PersonStorageController {
 
   /**
    * Lists all persons in database.
@@ -73,17 +70,6 @@ trait PersonController extends Controller {
       case Some(nothing)  =>  NoContent
       case None           =>  NotFound(id + " not found")
     }.recover(recover)
-  }
-
-  /**
-   * Partial function handling error cases.
-   *
-   * @return  an appropriate Result
-   */
-  private def recover: PartialFunction[Throwable, Result] = {
-    case se: StorageException =>
-      Logger.error("Could not request database", se)
-      InternalServerError("Could not request database.")
   }
 
 }

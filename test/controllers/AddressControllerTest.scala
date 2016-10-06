@@ -7,9 +7,10 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import play.api.libs.json.Json
+import play.api.mvc.Result
 import play.api.test.Helpers._
 import play.api.test._
-import services.PersonStorage
+import services.{StorageException, PersonStorage}
 
 import scala.concurrent.Future
 
@@ -164,6 +165,24 @@ class AddressControllerTest extends Specification with Mockito {
       val request = FakeRequest().withJsonBody(Json.toJson(PERSONAL_ADDRESS))
       val result = call(addressController.update(BLAH_ID, "foo"), request)
       status(result) mustEqual NOT_FOUND
+    }
+
+    "send an internal error if storage fails" in {
+      val personStorageMock = mock[PersonStorage]
+      personStorageMock.replace(any[String], any[Person]) returns Future.failed(new StorageException("foo", null))
+      personStorageMock.retrieve(any[String]) returns Future.failed(new StorageException("foo", null))
+      val addressController = new AddressController { override def personStorage: PersonStorage = personStorageMock }
+
+      val request = FakeRequest().withJsonBody(Json.toJson(PERSONAL_ADDRESS))
+      val results: Seq[Future[Result]] = Seq(
+        call(addressController.add(BLAH_ID, personal.toString), request),
+        call(addressController.update(BLAH_ID, personal.toString), request)//,
+//        call(addressController.remove(BLAH_ID, personal.toString), FakeRequest())
+      )
+      results.foreach( (result: Future[Result]) =>
+        status(result) must equalTo(INTERNAL_SERVER_ERROR)
+      )
+      ok
     }
 
   }

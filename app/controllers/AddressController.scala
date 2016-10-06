@@ -1,17 +1,14 @@
 package controllers
 
 import models.{Address, AddressType, Person}
-import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
 import play.api.mvc._
-import services.{StorageException, MongoPersonStorage, PersonStorage}
+import services.{MongoPersonStorage, PersonStorage}
 
 import scala.concurrent.Future
 
-trait AddressController extends Controller {
-
-  def personStorage: PersonStorage
+trait AddressController extends PersonStorageController {
 
   /**
    * Adds an address to an existing person in storage. Request body should be a JSON with the following properties:
@@ -62,7 +59,7 @@ trait AddressController extends Controller {
       case None               =>  Future.successful(NotFound("no " + kind + "address type"))
       case Some(addressType)  =>
         personStorage.retrieve(personId).flatMap {
-          case None         =>
+          case None =>
             Future.successful(NotFound("person id " + personId + " not found"))
           case Some(person) if !(person.addresses contains addressType) =>
             Future.successful(NotFound(s"person $personId does not have a $addressType address"))
@@ -96,17 +93,6 @@ trait AddressController extends Controller {
       case None                 =>  NotFound("person id " + personId + " not found")
       case Some(updatedPerson)  =>  result(Json.toJson(updatedPerson))
     }.recover(recover)
-  }
-
-  /**
-   * Partial function handling error cases.
-   *
-   * @return  an appropriate Result
-   */
-  def recover: PartialFunction[Throwable, Result] = {
-    case se: StorageException =>
-      Logger.error("Could not request database", se)
-      InternalServerError("Could not request database.")
   }
 
 }

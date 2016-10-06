@@ -146,10 +146,10 @@ class PersonControllerTest extends Specification with Mockito {
 
     "send an internal error if storage fails" in {
       val personStorageMock = mock[PersonStorage]
-      personStorageMock.list() returns Future.failed(StorageException("foo", null))
-      personStorageMock.persist(any[Person]) returns Future.failed(StorageException("foo", null))
-      personStorageMock.replace(any[String], any[Person]) returns Future.failed(StorageException("foo", null))
-      personStorageMock.remove(any[String]) returns Future.failed(StorageException("foo", null))
+      personStorageMock.list() returns Future.failed(new StorageException("foo", null))
+      personStorageMock.persist(any[Person]) returns Future.failed(new StorageException("foo", null))
+      personStorageMock.replace(any[String], any[Person]) returns Future.failed(new StorageException("foo", null))
+      personStorageMock.remove(any[String]) returns Future.failed(new StorageException("foo", null))
       val personController = new PersonController { override protected def personStorage: PersonStorage = personStorageMock }
 
       val results: Seq[Future[Result]] = Seq(
