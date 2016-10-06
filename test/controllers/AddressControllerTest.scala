@@ -64,7 +64,7 @@ class AddressControllerTest extends Specification with Mockito {
       personStorageMock.retrieve(BLAH_ID) returns Future.successful(Some(BLAH))
       personStorageMock.replace(any[String], any[Person]) answers( (args, mock) =>
         Future.successful(Some(args.asInstanceOf[Array[Any]](1).asInstanceOf[Person]))
-        )
+      )
       val addressController = new AddressController { override def personStorage: PersonStorage = personStorageMock }
 
       val request = FakeRequest().withJsonBody(Json.toJson(PROFESSIONAL_ADDRESS))
@@ -118,7 +118,7 @@ class AddressControllerTest extends Specification with Mockito {
       personStorageMock.retrieve(BLAH_ID) returns Future.successful(Some(BLAH_WITH_PERSONAL_ADDRESS))
       personStorageMock.replace(any[String], any[Person]) answers( (args, mock) =>
         Future.successful(Some(args.asInstanceOf[Array[Any]](1).asInstanceOf[Person]))
-        )
+      )
       val addressController = new AddressController { override def personStorage: PersonStorage = personStorageMock }
 
       val request = FakeRequest().withJsonBody(Json.toJson(PROFESSIONAL_ADDRESS))
@@ -167,6 +167,45 @@ class AddressControllerTest extends Specification with Mockito {
       status(result) mustEqual NOT_FOUND
     }
 
+    "remove an address" in {
+      val personStorageMock = mock[PersonStorage]
+      personStorageMock.retrieve(BLAH_ID) returns Future.successful(Some(BLAH_WITH_PERSONAL_ADDRESS))
+      personStorageMock.replace(any[String], any[Person]) answers( (args, mock) =>
+        Future.successful(Some(args.asInstanceOf[Array[Any]](1).asInstanceOf[Person]))
+      )
+      val addressController = new AddressController { override def personStorage: PersonStorage = personStorageMock }
+
+      val result = call(addressController.remove(BLAH_ID, personal.toString), FakeRequest())
+      status(result) mustEqual OK
+      val content = contentAsJson(result).validate[Person].get
+      content must beEqualTo(BLAH)
+    }
+
+    "send not found on address removal if given id does not exist" in {
+      val personStorageMock = mock[PersonStorage]
+      personStorageMock.retrieve(BLAH_ID) returns Future.successful(None)
+      val addressController = new AddressController { override def personStorage: PersonStorage = personStorageMock }
+
+      val result = call(addressController.remove(BLAH_ID, personal.toString), FakeRequest())
+      status(result) mustEqual NOT_FOUND
+    }
+
+    "send not found on address removal if person does not have given address type" in {
+      val personStorageMock = mock[PersonStorage]
+      personStorageMock.retrieve(BLAH_ID) returns Future.successful(Some(BLAH))
+      val addressController = new AddressController { override def personStorage: PersonStorage = personStorageMock }
+
+      val result = call(addressController.remove(BLAH_ID, professional.toString), FakeRequest())
+      status(result) must equalTo(NOT_FOUND)
+    }
+
+    "send not found on address removal if given address type does not exist" in {
+      val addressController = new AddressController { override def personStorage: PersonStorage = mock[PersonStorage] }
+
+      val result = call(addressController.remove(BLAH_ID, "foo"), FakeRequest())
+      status(result) mustEqual NOT_FOUND
+    }
+
     "send an internal error if storage fails" in {
       val personStorageMock = mock[PersonStorage]
       personStorageMock.replace(any[String], any[Person]) returns Future.failed(new StorageException("foo", null))
@@ -176,8 +215,8 @@ class AddressControllerTest extends Specification with Mockito {
       val request = FakeRequest().withJsonBody(Json.toJson(PERSONAL_ADDRESS))
       val results: Seq[Future[Result]] = Seq(
         call(addressController.add(BLAH_ID, personal.toString), request),
-        call(addressController.update(BLAH_ID, personal.toString), request)//,
-//        call(addressController.remove(BLAH_ID, personal.toString), FakeRequest())
+        call(addressController.update(BLAH_ID, personal.toString), request),
+        call(addressController.remove(BLAH_ID, personal.toString), FakeRequest())
       )
       results.foreach( (result: Future[Result]) =>
         status(result) must equalTo(INTERNAL_SERVER_ERROR)
