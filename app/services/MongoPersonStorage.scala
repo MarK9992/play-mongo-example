@@ -9,6 +9,7 @@ import play.modules.reactivemongo.json._
 import play.modules.reactivemongo.json.collection._
 import play.modules.reactivemongo.ReactiveMongoPlugin
 import reactivemongo.api.Cursor
+import reactivemongo.bson.{BSONObjectID, BSONDocument}
 
 import scala.concurrent.Future
 
@@ -27,13 +28,21 @@ class MongoPersonStorage extends PersonStorage {
     val cursor: Cursor[Person] = personsCollection.find(Json.obj()).cursor[Person]()
     val futureList: Future[List[Person]] = cursor.collect[List]()
 
-    futureList.recover(recover)
+    futureList.recover(throwStorageException)
   }
 
   /**
    * @inheritdoc
    */
-  override def replace(id: String, person: Person): Future[Person] = ???
+  override def replace(id: String, person: Person): Future[Option[Person]] = {
+    val selector = BSONDocument("_id" -> BSONObjectID(id))
+    val modifier = BSONDocument("$set" -> Json.toJson(person))
+
+    personsCollection.update(selector, modifier).map { writeResult =>
+      Logger.debug(writeResult.toString)
+      if (writeResult.n == 1) Some(person) else None
+    }.recover(throwStorageException)
+  }
 
   /**
    * @inheritdoc
@@ -42,7 +51,7 @@ class MongoPersonStorage extends PersonStorage {
     personsCollection.insert(person).map { writeResult =>
       Logger.debug(writeResult.toString)
       person
-    }.recover(recover)
+    }.recover(throwStorageException)
   }
 
   /**
@@ -71,7 +80,7 @@ class MongoPersonStorage extends PersonStorage {
   override def addAddress(id: String, addressType: AddressType, address: Address): Future[Person] = ???
 
   /* Logs and encapsulates a Throwable into a StorageException. */
-  private def recover[T]: PartialFunction[Throwable, T] = {
+  private def throwStorageException[T]: PartialFunction[Throwable, T] = {
     case t: Throwable =>
       Logger.error("Could not request MongoDB", t)
       throw new StorageException("mongodb error", t)

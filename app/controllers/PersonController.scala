@@ -61,13 +61,9 @@ trait PersonController extends Controller with MongoController {
    *            body is not in the appropriate format, the updated person's JSON otherwise
    */
   def update(id: String) = Action.async(parse.json[Person]) { request =>
-    val updatedPersonJson = Json.toJson(request.body)
-    val selector = BSONDocument("_id" -> BSONObjectID(id))
-    val modifier = BSONDocument("$set" -> updatedPersonJson)
-
-    collection.update(selector, modifier).map { writeResult =>
-      Logger.debug(writeResult.toString)
-      if (writeResult.n == 1) Ok(updatedPersonJson) else NotFound(id + " not found")
+    personStorage.replace(id, request.body).map {
+      case Some(person) =>  Ok(Json.toJson(person))
+      case None         =>  NotFound(id + " not found")
     }.recover(recover)
   }
 

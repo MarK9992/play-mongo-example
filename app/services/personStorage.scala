@@ -37,9 +37,9 @@ trait PersonStorage {
    *
    * @param id      id of the person to replace
    * @param person  the new person
-   * @return        a future over the newly persisted person
+   * @return        a future over a newly persisted person option
    */
-  def replace(id: String, person: Person): Future[Person]
+  def replace(id: String, person: Person): Future[Option[Person]]
 
   /**
    * Retrieves asynchronously a person from storage.
