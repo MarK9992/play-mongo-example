@@ -5,15 +5,10 @@ import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
 import play.api.mvc._
-import play.modules.reactivemongo.MongoController
-import play.modules.reactivemongo.json._
-import play.modules.reactivemongo.json.collection._
-import reactivemongo.bson._
 import services.{MongoPersonStorage, StorageException}
 
-trait PersonController extends Controller with MongoController {
+trait PersonController extends Controller {
 
-  def collection: JSONCollection = db.collection[JSONCollection]("persons")
   private val personStorage = MongoPersonStorage()
 
   /**
@@ -74,11 +69,9 @@ trait PersonController extends Controller with MongoController {
    * @return    not found status code if the given id doesn't match any element, no content otherwise
    */
   def remove(id: String) = Action.async {
-    val selector = BSONDocument("_id" -> BSONObjectID(id))
-
-    collection.remove(selector, firstMatchOnly = true).map { writeResult =>
-      Logger.debug(writeResult.toString)
-      if (writeResult.n == 1) NoContent else NotFound(id + " not found")
+    personStorage.remove(id).map {
+      case Some(nothing)  =>  NoContent
+      case None           =>  NotFound(id + " not found")
     }.recover(recover)
   }
 

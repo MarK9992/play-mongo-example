@@ -28,9 +28,9 @@ trait PersonStorage {
    * Removes asynchronously a person from storage.
    *
    * @param id  the person id to look for
-   * @return    a future with no content
+   * @return    a future over an option with no content
    */
-  def remove(id: String): Future[Unit]
+  def remove(id: String): Future[Option[Unit]]
 
   /**
    * Replaces asynchronously a person in storage.

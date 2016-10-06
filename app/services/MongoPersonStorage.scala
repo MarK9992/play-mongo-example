@@ -57,7 +57,14 @@ class MongoPersonStorage extends PersonStorage {
   /**
    * @inheritdoc
    */
-  override def remove(id: String): Future[Unit] = ???
+  override def remove(id: String): Future[Option[Unit]] = {
+    val selector = BSONDocument("_id" -> BSONObjectID(id))
+
+    personsCollection.remove(selector, firstMatchOnly = true).map { writeResult =>
+      Logger.debug(writeResult.toString)
+      if (writeResult.n == 1) Some() else None
+    }.recover(throwStorageException)
+  }
 
   /**
    * @inheritdoc
