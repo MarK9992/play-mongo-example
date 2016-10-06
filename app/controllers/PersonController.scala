@@ -5,17 +5,16 @@ import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
 import play.api.mvc._
+import play.modules.reactivemongo.MongoController
 import play.modules.reactivemongo.json._
 import play.modules.reactivemongo.json.collection._
-import play.modules.reactivemongo.MongoController
-import reactivemongo.api.Cursor
 import reactivemongo.bson._
-
-import scala.concurrent.Future
+import services.{MongoPersonStorage, StorageException}
 
 trait PersonController extends Controller with MongoController {
 
   def collection: JSONCollection = db.collection[JSONCollection]("persons")
+  private val personStorage = MongoPersonStorage()
 
   /**
    * Lists all persons in database.
@@ -24,12 +23,9 @@ trait PersonController extends Controller with MongoController {
    *          an internal server error (500) otherwise
    */
   def list = Action.async {
-    val cursor: Cursor[Person] = collection.find(Json.obj()).cursor[Person]()
-    val futureList: Future[List[Person]] = cursor.collect[List]()
-
-    futureList.map { persons =>
+    personStorage.list().map { persons =>
       Ok(Json.toJson(persons))
-    }.recover(error)
+    }.recover(recover)
   }
 
   /**
@@ -45,12 +41,9 @@ trait PersonController extends Controller with MongoController {
    *          otherwise
    */
   def create = Action.async(parse.json[Person]) { request =>
-    val person = request.body
-
-    collection.insert(person).map { writeResult =>
-      Logger.debug(writeResult.toString)
+    personStorage.persist(request.body).map { person =>
       Created(Json.toJson(person))
-    }.recover(error)
+    }.recover(recover)
   }
 
   /**
@@ -64,7 +57,8 @@ trait PersonController extends Controller with MongoController {
    *    "town", "zipCode" string valued properties)
    *
    * @param id  the id to look for
-   * @return    not found status code if the given id doesn't match any element, the updated person's JSON otherwise
+   * @return    not found status code if the given id doesn't match any element, bad request status code if the request
+   *            body is not in the appropriate format, the updated person's JSON otherwise
    */
   def update(id: String) = Action.async(parse.json[Person]) { request =>
     val updatedPersonJson = Json.toJson(request.body)
@@ -74,7 +68,7 @@ trait PersonController extends Controller with MongoController {
     collection.update(selector, modifier).map { writeResult =>
       Logger.debug(writeResult.toString)
       if (writeResult.n == 1) Ok(updatedPersonJson) else NotFound(id + " not found")
-    }.recover(error)
+    }.recover(recover)
   }
 
   /**
@@ -89,7 +83,7 @@ trait PersonController extends Controller with MongoController {
     collection.remove(selector, firstMatchOnly = true).map { writeResult =>
       Logger.debug(writeResult.toString)
       if (writeResult.n == 1) NoContent else NotFound(id + " not found")
-    }.recover(error)
+    }.recover(recover)
   }
 
   /**
@@ -97,9 +91,9 @@ trait PersonController extends Controller with MongoController {
    *
    * @return  an appropriate Result
    */
-  def error: PartialFunction[Throwable, Result] = {
-    case t: Throwable =>
-      Logger.error("Could not request MongoDB", t)
+  private def recover: PartialFunction[Throwable, Result] = {
+    case se: StorageException =>
+      Logger.error("Could not request database", se)
       InternalServerError("Could not request database.")
   }
 
