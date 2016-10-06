@@ -36,7 +36,7 @@ class MongoPersonStorage extends PersonStorage {
    */
   override def replace(id: String, person: Person): Future[Option[Person]] = {
     try {
-      val selector = BSONDocument("_id" -> BSONObjectID(id))
+      val selector = BSONDocument("_id" -> getBSONID(id))
       val modifier = BSONDocument("$set" -> Json.toJson(person))
 
       personsCollection.update(selector, modifier).map { writeResult =>
@@ -61,7 +61,7 @@ class MongoPersonStorage extends PersonStorage {
    */
   override def remove(id: String): Future[Option[Unit]] = {
     try {
-      val selector = BSONDocument("_id" -> BSONObjectID(id))
+      val selector = BSONDocument("_id" -> getBSONID(id))
 
       personsCollection.remove(selector, firstMatchOnly = true).map { writeResult =>
         Logger.debug(writeResult.toString)
