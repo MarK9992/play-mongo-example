@@ -50,16 +50,6 @@ trait PersonStorage {
   def retrieve(id: String): Future[Option[Person]]
 
   /**
-   * Asynchronously adds an address to an existing person in storage.
-   *
-   * @param id          id of the person to add an address
-   * @param addressType address type of the new address
-   * @param address     the address to add
-   * @return            a future over the updated person
-   */
-  def addAddress(id: String, addressType: AddressType, address: Address): Future[Person]
-
-  /**
    * Asynchronously replaces an address to an existing person in storage.
    *
    * @param id          id of the person to replace an address

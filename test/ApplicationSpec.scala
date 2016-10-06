@@ -33,31 +33,6 @@ class ApplicationSpec extends Specification with BeforeAfter {
       contentAsString(home) must contain ("Your new application is ready.")
     }
 
-    "send 400 on bad address inputs" in new WithApplication() {
-      val badAddresses = Seq(
-        """
-          |{}
-        """.stripMargin, """
-          |{
-          |  "streeet": "",
-          |  "town": "",
-          |  "zipCode": ""
-          |}
-        """.stripMargin)
-
-      badAddresses.foreach { input =>
-        val request = FakeRequest(POST, "/person/foo/address/personal").withJsonBody(Json.parse(input))
-        val result = route(request).get
-        status(result) mustEqual BAD_REQUEST
-      }
-    }
-
-    "send 404 on bad address type path" in new WithApplication() {
-      val request = FakeRequest(POST, "/person/foo/address/peronal").withJsonBody(Json.toJson(Address("", "", "")))
-      val result = route(request).get
-      status(result) mustEqual NOT_FOUND
-    }
-
   }
 
 }

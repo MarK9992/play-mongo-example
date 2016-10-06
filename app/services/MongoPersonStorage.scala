@@ -4,12 +4,13 @@ import models.{Person, Address, AddressType}
 import play.api.Logger
 import play.api.Play.current
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import play.api.libs.json.Json
+//import play.api.libs.json.Json
+import play.api.libs.json._
 import play.modules.reactivemongo.json._
 import play.modules.reactivemongo.json.collection._
 import play.modules.reactivemongo.ReactiveMongoPlugin
 import reactivemongo.api.Cursor
-import reactivemongo.bson.{BSONObjectID, BSONDocument}
+import reactivemongo.bson.{BSONDocument, BSONObjectID}
 
 import scala.concurrent.Future
 
@@ -69,7 +70,12 @@ class MongoPersonStorage extends PersonStorage {
   /**
    * @inheritdoc
    */
-  override def retrieve(id: String): Future[Option[Person]] = ???
+  override def retrieve(id: String): Future[Option[Person]] = {
+    val selector = BSONDocument("_id" -> BSONObjectID(id))
+    val findFuture = personsCollection.find(selector).one[Person]
+
+    findFuture.recover(throwStorageException)
+  }
 
   /**
    * @inheritdoc
@@ -80,11 +86,6 @@ class MongoPersonStorage extends PersonStorage {
    * @inheritdoc
    */
   override def removeAddress(id: String, addressType: AddressType): Future[Person] = ???
-
-  /**
-   * @inheritdoc
-   */
-  override def addAddress(id: String, addressType: AddressType, address: Address): Future[Person] = ???
 
   /* Logs and encapsulates a Throwable into a StorageException. */
   private def throwStorageException[T]: PartialFunction[Throwable, T] = {

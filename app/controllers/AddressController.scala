@@ -1,20 +1,17 @@
 package controllers
 
-import models.{Person, AddressType, Address}
+import models.{Address, AddressType, Person}
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.json._
 import play.api.mvc._
-import play.modules.reactivemongo.MongoController
-import play.modules.reactivemongo.json._
-import play.modules.reactivemongo.json.collection.JSONCollection
-import reactivemongo.bson.{BSONObjectID, BSONDocument}
+import services.{MongoPersonStorage, PersonStorage}
 
 import scala.concurrent.Future
 
-trait AddressController extends Controller with MongoController {
+trait AddressController extends Controller {
 
-  def collection: JSONCollection = db.collection[JSONCollection]("persons")
+  def personStorage: PersonStorage
 
   /**
    * Adds an address to an existing person in storage. Request body should be a JSON with the following properties:
@@ -35,23 +32,25 @@ trait AddressController extends Controller with MongoController {
     AddressType.matchString(kind) match {
       case None               =>  Future.successful(NotFound("no " + kind + "address type"))
       case Some(addressType)  =>
-        val selector = BSONDocument("_id" -> BSONObjectID(personId))
-        val findFuture = collection.find(selector).one[Person]
-
-        findFuture.flatMap {
-          case None                                                   =>  Future.successful(NotFound("person id " + personId + " not found"))
-          case Some(person) if person.addresses contains addressType  =>  Future.successful(BadRequest(s"person $personId already has a $addressType address"))
-          case Some(person)                                           =>
-            val address = request.body
-            val updatedPerson = Person(person.name, person.lastName, person.birthDate, person.sex, person.addresses + (addressType -> address))
-            val modifier = BSONDocument("$set" -> Json.toJson(updatedPerson))
-
-            collection.update(selector, modifier).map { writeResult =>
-              Logger.debug(writeResult.toString)
-              Ok(Json.toJson(updatedPerson))
-            }.recover(error)
+        personStorage.retrieve(personId).flatMap {
+          case None =>
+            Future.successful(NotFound("person id " + personId + " not found"))
+          case Some(person) if person.addresses contains addressType  =>  // No handling of concurrent accesses.
+            Future.successful(BadRequest(s"person $personId already has a $addressType address"))
+          case Some(person) =>
+            addAddress(personId, person, addressType, request.body)
         }.recover(error)
     }
+  }
+
+  /* Performs the call to add an address. */
+  private def addAddress(personId: String, person: Person, addressType: AddressType, address: Address): Future[Result] = {
+    val newPerson = Person(person.name, person.lastName, person.birthDate, person.sex, person.addresses + (addressType -> address))
+
+    personStorage.replace(personId, newPerson).map {
+      case None                 =>  NotFound("person id " + personId + " not found")
+      case Some(updatedPerson)  =>  Created(Json.toJson(updatedPerson))
+    }.recover(error)
   }
 
   /**
@@ -101,4 +100,8 @@ trait AddressController extends Controller with MongoController {
 
 }
 
-object AddressController extends AddressController
+object AddressController extends AddressController {
+
+  override def personStorage: PersonStorage = MongoPersonStorage()
+
+}
