@@ -5,7 +5,7 @@ import play.api.mvc.{Controller, Result}
 import services.{StorageException, BadIdException, PersonStorage}
 
 /**
- * @author Marc Karassev
+ * Abstract controller using the person storage.
  */
 trait PersonStorageController extends Controller {
 

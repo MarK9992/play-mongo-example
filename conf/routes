@@ -18,3 +18,6 @@ DELETE  /person/:id                 controllers.PersonController.remove(id)
 POST    /person/:id/address/:kind   controllers.AddressController.add(id, kind)
 PUT     /person/:id/address/:kind   controllers.AddressController.update(id, kind)
 DELETE  /person/:id/address/:kind   controllers.AddressController.remove(id, kind)
+
+# Persons V2
+GET     /v2/persons                 controllers.V2PersonController.list
